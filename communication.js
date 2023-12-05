@@ -32,7 +32,6 @@
 // =======================================================================================
 // Client side scripting for the Xsens DOT server.
 // =======================================================================================
-
 var socket = io();
 
 var eventHandlerFunctions = {};
@@ -51,6 +50,8 @@ var scanControlButton,
 var discoveredSensors = [],
     connectedSensors  = [],
     measuringSensors  = [];
+
+var measuringData = new Map();
 
 var lastHeadingStatusList = [];
 
@@ -89,7 +90,6 @@ window.onload = function( eventName, parameters  )
 
     stopMeasuringButton = document.getElementById("stopMeasuringButton");
     stopMeasuringButton.hidden = true;
-
     measurementPayloadList = document.getElementById("measurementPayloadList");
 
     syncingModal = document.querySelector(".modal");
@@ -337,6 +337,32 @@ function setEventHandlerFunctions()
                 }
             });
         }
+
+        if (parameters.freeAcc_x !== undefined && parameters.freeAcc_x !== null) {
+            const element = document.getElementById(ID_SENSOR_DATA_INDICATOR + address + "data");
+
+            if (element != null)
+            {
+                element.innerHTML = sensorDataToString(parameters);
+            }
+
+            const svg = document.getElementById("chart-" + address);
+            if (measuringData.has(address) && svg != null)
+            {
+                let queue = measuringData.get(address);
+                queue.push(parameters);
+                let timestamp = parameters.timestamp;
+                let expected = timestamp - 7 * 1000 * 1000;
+                while (queue.length > 0 && queue[0].timestamp < expected)
+                {
+                    queue.shift();
+                }
+                if (queue.length > 2)
+                {
+                    updateChart(svg, queue);
+                }
+            }
+        }
     };
 
     eventHandlerFunctions[ 'syncingDone' ] = function( eventName, parameters  )
@@ -372,6 +398,15 @@ function setEventHandlerFunctions()
         addLastHeadingStatus( parameters );
         updateHeadingResetButton();
     };
+
+    eventHandlerFunctions[ 'readDeviceTag' ] = function( eventName, parameters  )
+    {
+        console.log( "readDeviceTag " + parameters.address + ", " + parameters.tag );
+        let label = document.getElementById("tag-" + parameters.address);
+        if (label != null) {
+            label.innerHTML = parameters.tag;
+        }
+    }
 }
 
 function guiEventHandler( eventName, parameters )
@@ -496,12 +531,14 @@ function addSensorToList( sensorList, sensorListName, address, clickHandler )
 
     var sensorListElement = document.getElementById(sensorListName);
 
+    var container = document.createElement("div");
+    sensorListElement.appendChild(container);
+
     var label = document.createElement("div");
     label.setAttribute( "id", sensorListName+address );
-    label.style.width = "500px";
+    label.style.width = "70%";
     label.style.display = "flex";
-
-    sensorListElement.appendChild(label);
+    container.appendChild(label);
 
     var logo = document.createElement("img");
     logo.id = ID_LOGO_IMAGE + address;
@@ -540,6 +577,32 @@ function addSensorToList( sensorList, sensorListName, address, clickHandler )
     sensorAddress.style.fontSize = "16px";
     label.appendChild(sensorAddress);
 
+    var sensorTag = document.createElement('label');
+    sensorTag.id = "tag-" + address;
+    sensorTag.innerHTML = "null";
+    sensorTag.style.padding = "10px";
+    sensorTag.style.color = "#FFFFFF";
+    sensorTag.style.flex = "1";
+    sensorTag.style.fontSize = "16px";
+    label.appendChild(sensorTag);
+
+    var sensorData = document.createElement('label');
+    sensorData.id = ID_SENSOR_DATA_INDICATOR + address + "data";
+    sensorData.innerHTML = sensorDataToString({
+        euler_x: 0,
+        euler_y: 0,
+        euler_z: 0,
+        freeAcc_x: 0,
+        freeAcc_y: 0,
+        freeAcc_z: 0
+    });
+    sensorData.style.padding = "10px";
+    sensorData.style.color = "#FFFFFF";
+    sensorData.style.flex = "1";
+    sensorData.style.fontSize = "16px";
+    label.appendChild(sensorData);
+
+
     var connectionControlButton = document.createElement("button");
     connectionControlButton.id = ID_CONNECTION_CONTROL_BUTTON + address;
     connectionControlButton.name = address;
@@ -554,6 +617,41 @@ function addSensorToList( sensorList, sensorListName, address, clickHandler )
 
     var newLine = document.createElement( "br" );
     label.appendChild(newLine);
+
+    // chart
+    var previewButton = document.createElement("button");
+    previewButton.name = address;
+    previewButton.innerHTML = "Preview";
+    initButtonStyle(previewButton);
+
+    previewButton.onclick = function() {
+        var svg = document.getElementById("chart-" + address);
+        if (svg == null) {
+            svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.id = "chart-" + address;
+            svg.style.width = "70%";
+            svg.style.height = "300px";
+            svg.style.display = "flex";
+            svg.style.background="lightgray";
+            container.appendChild(svg);
+            updateChart(svg)
+            measuringData.set(address, []);
+            previewButton.style.background = "#EA6852";
+        } else {
+            svg.parentNode.removeChild(svg);
+            measuringData.delete(address);
+            previewButton.style.background = "#FFFFFF";
+        }
+    }
+    previewButton.onmouseover = onButtonMouseOver;
+    previewButton.onmouseout = function () {
+        initButtonStyle(this);
+        if (document.getElementById("chart-" + address) != null) {
+            this.style.background = "#EA6852";
+        }
+    }
+
+    label.appendChild(previewButton);
 }
 
 function initButtonStyle(connectionControlButton)
@@ -609,7 +707,7 @@ function removeSensorFromList( sensorList, sensorListName, address )
     if( idx == -1 ) return;
 
     var element = document.getElementById(sensorListName+address);
-    element.parentNode.removeChild(element);
+    element.parentNode.parentNode.removeChild(element.parentNode);
 
     sensorList.splice(idx,1);
 }
@@ -979,4 +1077,90 @@ function getUniqueFilename()
             seconds.padStart(2,"0");		
 }
 
+function sensorDataToString(data) {
+    return `ex: ${data.euler_x === undefined ? 0 : data.euler_x.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ey: ${data.euler_y === undefined ? 0 : data.euler_y.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ez: ${data.euler_z === undefined ? 0 : data.euler_z.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ax: ${data.freeAcc_x === undefined ? 0 : data.freeAcc_x.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ay: ${data.freeAcc_y === undefined ? 0 : data.freeAcc_y.toFixed(0).replace(/^-([.0]*)$/, '$1')}, az: ${data.freeAcc_z === undefined ? 0 : data.freeAcc_z.toFixed(0).replace(/^-([.0]*)$/, '$1')}`;
+}
+
+xScale = d3.scaleLinear();
+yScale = d3.scaleLinear();
+lineX = d3.line()
+    .x(d => xScale(d.timestamp))
+    .y(d => yScale(d.freeAcc_x));
+lineY = d3.line()
+    .x(d => xScale(d.timestamp))
+    .y(d => yScale(d.freeAcc_y));
+lineZ = d3.line()
+    .x(d => xScale(d.timestamp))
+    .y(d => yScale(d.freeAcc_z));
+xAxis = d3.axisBottom(xScale);
+yAxis = d3.axisLeft(yScale);
+
+function updateChart(svgElement, data = []) {
+    let w = svgElement.clientWidth;
+    let h = svgElement.clientHeight;
+
+    let marginLeft = 30;
+    let marginRight = 30;
+    let marginTop = 30;
+    let marginBottom = 30;
+
+    let svg = d3.select(svgElement)
+
+    // Construct scales and axes.
+
+    xScale.domain(d3.extent(data, d => d.timestamp))
+        .range([marginLeft, w - marginRight]);
+
+    let max = 1;
+    let min = -1;
+    data.forEach(d => {
+        max = Math.max(max, d.freeAcc_x, d.freeAcc_y, d.freeAcc_z);
+        min = Math.min(min, d.freeAcc_x, d.freeAcc_y, d.freeAcc_z);
+    });
+    let range = Math.max(max, -min);
+    yScale.domain([-range, range])
+        .range([h - marginBottom, marginTop]);
+
+    if (svgElement.children.length === 0) { // initial
+        svg.append("g")
+            .attr('class', 'y_axis')
+
+        svg.append("g")
+            .attr('class', 'x_axis')
+
+        svg.append("path")
+            .attr("class", "lineX")
+            .attr("fill", "none")
+            .attr("stroke", 'red')
+
+        svg.append("path")
+            .attr("class", "lineY")
+            .attr("fill", "none")
+            .attr("stroke", 'green')
+
+        svg.append("path")
+            .attr("class", "lineZ")
+            .attr("fill", "none")
+            .attr("stroke", 'blue')
+    }
+
+    const t = svg.transition().duration(1000)
+
+    svg.select(".y_axis")
+        .attr('transform', `translate(${marginLeft} 0)`)
+        .call(yAxis);
+
+    svg.select(".x_axis")
+        .attr('transform', `translate(0 ${h - marginBottom})`)
+        .call(xAxis);
+
+    svg.select(".lineX")
+        .attr("d", lineX(data))
+
+    svg.select(".lineY")
+        .attr("d", lineY(data))
+
+    svg.select(".lineZ")
+        .attr("d", lineZ(data))
+}
 

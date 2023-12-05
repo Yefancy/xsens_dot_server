@@ -48,6 +48,7 @@ const SENSOR_NAME                          = "Xsens DOT",
       BLE_UUID_CONTROL                     = "15172001494711e98646d663bd873d93",
       BLE_UUID_MEASUREMENT_MEDIATE_PAYLOAD = "15172003494711e98646d663bd873d93",
       BLE_UUID_ORIENTATION_RESET_CONTROL   = "15172006494711e98646d663bd873d93",
+      BLE_UUID_DEVICE_CONTROL              = "15171002494711e98646d663bd873d93",
       HEADING_STATUS_XRM_HEADING           = 1,
       HEADING_STATUS_XRM_DEFAULT_ALIGNMENT = 7,
       HEADING_STATUS_XRM_NONE              = 8,
@@ -122,6 +123,7 @@ class BleHandler
                 sensor.characteristics = {};
                 sensor.systemTimestamp = 0;
                 sensor.sensorTimestamp = 0;
+                sensor.tag = "null";
 
                 bleHandler.sendBleEvent( 'bleSensorDiscovered', {sensor:sensor} );
             }
@@ -172,6 +174,8 @@ class BleHandler
                 {
                     sensor.characteristics[characteristic.uuid] = characteristic;
                 });
+
+                bleHandler.checkSensorInfo( sensor );
 
                 sensor.on( 'disconnect', function()
                 {
@@ -247,6 +251,33 @@ class BleHandler
             return;
         }
         syncingHandler.syncingEvents.emit( 'syncingEvent', eventName, parameters );
+    }
+
+    // -----------------------------------------------------------------------------------
+    // -- Check sensor information --
+    // -----------------------------------------------------------------------------------
+    checkSensorInfo( sensor )
+    {
+        var bleHandler = this,
+            controlCharacteristic = sensor.characteristics[BLE_UUID_DEVICE_CONTROL]
+
+        if (controlCharacteristic !== undefined)
+        {
+            controlCharacteristic.read(function(error, data)
+            {
+                if( error )
+                {
+                    bleHandler.sendBleEvent( 'bleSensorError', { sensor:sensor, error: error } );
+                    return;
+                }
+
+                let tag = getDeviceTag(data);
+
+                console.log(sensor.address + " BLE_UUID_DEVICE_CONTROL read tag: " + tag);
+                sensor.tag = tag;
+                bleHandler.guiInterface.sendGuiEvent( 'readDeviceTag', {address: sensor.address, tag: tag} );
+            });
+        }
     }
 
     // -----------------------------------------------------------------------------------
@@ -527,6 +558,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp: sensor.systemTimestamp,
                 address:   sensor.address,
+                tag: sensor.tag,
                 euler_x:   euler.x,
                 euler_y:   euler.y,
                 euler_z:   euler.z,
@@ -552,6 +584,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp:    sensor.systemTimestamp,
                 address:      sensor.address,
+                tag: sensor.tag,
                 quaternion_w: quaternion.w,
                 quaternion_x: quaternion.x,
                 quaternion_y: quaternion.y,
@@ -580,6 +613,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp:    sensor.systemTimestamp,
                 address:      sensor.address,
+                tag: sensor.tag,
                 acc_x:        acc.x,
                 acc_y:        acc.y,
                 acc_z:        acc.z,
@@ -607,6 +641,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp: sensor.systemTimestamp,
                 address:   sensor.address,
+                tag: sensor.tag,
                 euler_x:   euler.x,
                 euler_y:   euler.y,
                 euler_z:   euler.z,
@@ -629,6 +664,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp: sensor.systemTimestamp,
                 address:   sensor.address,
+                tag: sensor.tag,
                 euler_x:   euler.x,
                 euler_y:   euler.y,
                 euler_z:   euler.z,
@@ -650,6 +686,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             {
                 timestamp:    sensor.systemTimestamp,
                 address:      sensor.address,
+                tag: sensor.tag,
                 quaternion_w: quaternion.w,
                 quaternion_x: quaternion.x,
                 quaternion_y: quaternion.y,
@@ -833,6 +870,20 @@ function getCalibratedMag(data, offset)
     z = z / TWO_POW_TWELVE;
 
     return {x:x, y:y, z:z};
+}
+
+// ---------------------------------------------------------------------------------------
+// -- Get device tag --
+// ---------------------------------------------------------------------------------------
+function getDeviceTag(data)
+{
+    let length = data[7];
+    let chars = [];
+    for (let i = 0; i < length; i++)
+    {
+        chars.push(data[8 + i]);
+    }
+    return String.fromCharCode.apply(null, chars);
 }
 
 // =======================================================================================

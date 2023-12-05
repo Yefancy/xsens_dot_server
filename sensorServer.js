@@ -758,27 +758,27 @@ var transitions =
             switch (component.measuringPayloadId)
             {
                 case MEASURING_PAYLOAD_TYPE_COMPLETE_EULER:
-                    component.fileStream.write( "Timestamp,Address,Euler_x,Euler_y,Euler_z,FreeAcc_x,FreeAcc_y,FreeAcc_z\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Euler_x,Euler_y,Euler_z,FreeAcc_x,FreeAcc_y,FreeAcc_z\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_EXTENDED_QUATERNION:
-                    component.fileStream.write( "Timestamp,Address,Quaternion_w,Quaternion_x,Quaternion_y,Quaternion_z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Status,ClipCountAcc,ClipCountGyr\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Quaternion_w,Quaternion_x,Quaternion_y,Quaternion_z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Status,ClipCountAcc,ClipCountGyr\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_RATE_QUANTITIES_WITH_MAG:
-                    component.fileStream.write( "Timestamp,Address,Acc_x,Acc_y,Acc_z,Gyr_x,Gyr_y,Gyr_z,Mag_x,Mag_y,Mag_z\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Acc_x,Acc_y,Acc_z,Gyr_x,Gyr_y,Gyr_z,Mag_x,Mag_y,Mag_z\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_CUSTOM_MODE_1:
-                    component.fileStream.write( "Timestamp,Address,Euler_X,Euler_Y,Euler_Z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Gyr_X,Gyr_Y,Gyr_Z\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Euler_X,Euler_Y,Euler_Z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Gyr_X,Gyr_Y,Gyr_Z\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_CUSTOM_MODE_2:
-                    component.fileStream.write( "Timestamp,Address,Euler_X,Euler_Y,Euler_Z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Mag_x,Mag_y,Mag_z\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Euler_X,Euler_Y,Euler_Z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Mag_x,Mag_y,Mag_z\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_CUSTOM_MODE_3:
-                    component.fileStream.write( "Timestamp,Address,Quaternion_w,Quaternion_x,Quaternion_y,Quaternion_z,Gyr_X,Gyr_Y,Gyr_Z\n" );
+                    component.fileStream.write( "Timestamp,Address,Tag,Quaternion_w,Quaternion_x,Quaternion_y,Quaternion_z,Gyr_X,Gyr_Y,Gyr_Z\n" );
                     break;
             }
 
