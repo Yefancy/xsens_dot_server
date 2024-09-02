@@ -53,7 +53,7 @@ const STATIC_ASSETS_DIRECTORIES =
     APP_DATA_DIR
 ];
 
-const PORT = 8080;
+const PORT = 8088;
 
 // =======================================================================================
 // Constructor

@@ -31,7 +31,7 @@
 -->
 
 <!doctype html>
-<html>
+<html xmlns="http://www.w3.org/1999/html">
 	<head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -52,11 +52,18 @@
     <div width="500px" align="center">
       <div id="measurementMode" style="color: white; margin-top: 2px; width: 500px; text-align: left; font-weight: bold;" hidden>Measurement Mode: Complete (Euler)</div>
       <div id="headingResetTip" style="color: white; margin-top: 2px; width: 500px; text-align: left;" hidden>Heading reset/revert setting is only available for orientation data.</div>
-
+      <div style="position: relative;">
+        <label for="expName"></label><input id="expName" type="text" placeholder="Exp Name" style="width: 100px; margin-top: 2px; margin-bottom: 2px; text-align: left; font-weight: bold;"/>
+        <label for="leftTimes"></label><input id="leftTimes" type="text" placeholder="leftTimes" value="1" style="width: 100px; margin-top: 2px; margin-bottom: 2px; text-align: left; font-weight: bold;"/>
+        <label for="duration"></label><input id="duration" type="text" placeholder="duration" value="20000" style="width: 100px; margin-top: 2px; margin-bottom: 2px; text-align: left; font-weight: bold;"/>
+        <label for="interval"></label><input id="interval" type="text" placeholder="interval" value="5000" style="width: 100px; margin-top: 2px; margin-bottom: 2px; text-align: left; font-weight: bold;"/>
+        <button id="recordingExpData" class="actionButton"  onclick="recordingExpData()">Recording Exp Data</button>
+      </div>
       <div class="wrapper" style="padding-top: 12px; padding-bottom: 12px;">
         <div style="position: relative;">
           <button id="scanControlButton" class="actionButton" style="position: absolute; left: 0px; margin-top: -18px;" onclick="scanControlButtonClicked()">Start Scanning</button>
         </div>
+
 
         <div style="position: relative;">
           <div style="position: absolute; left: 0px; right: 0px; margin-top: -18px;">

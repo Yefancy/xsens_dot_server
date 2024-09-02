@@ -3,7 +3,9 @@
     "version": "1.0.0",
     "description": "Xsens DOT Server",
     "scripts": {
-        "start": "node xsensDotServer.js"
+        "xsensDotServer": "node xsensDotServer.js",
+        "virtualSensor": "node virtualSensorServer.js",
+        "server": "node server.js"
     },
     "dependencies": {
         "@abandonware/noble": "^1.9.2-8",
@@ -13,6 +15,7 @@
         "quaternion": "^1.1.0",
         "socket.io": "^2.3.0",
         "hashmap": "^2.4.0",
-        "d3": "latest"
+        "d3": "latest",
+        "ascii-art-ansi": "^1.1.0"
     }
 }

@@ -54,6 +54,77 @@ const RECORDINGS_PATH = "/data/",
 // State transitions table
 // =======================================================================================
 
+function degreesToRadians(degrees) {
+	return degrees * Math.PI / 180;
+}
+
+function createRotationMatrix(rx, ry, rz) {
+	// Convert angles from degrees to radians
+	rx = degreesToRadians(rx);
+	ry = degreesToRadians(ry);
+	rz = degreesToRadians(rz);
+
+	// Rotation matrices for each axis
+	let Rx = [
+		[1, 0, 0],
+		[0, Math.cos(rx), -Math.sin(rx)],
+		[0, Math.sin(rx), Math.cos(rx)]
+	];
+
+	let Ry = [
+		[Math.cos(ry), 0, Math.sin(ry)],
+		[0, 1, 0],
+		[-Math.sin(ry), 0, Math.cos(ry)]
+	];
+
+	let Rz = [
+		[Math.cos(rz), -Math.sin(rz), 0],
+		[Math.sin(rz), Math.cos(rz), 0],
+		[0, 0, 1]
+	];
+
+	// Combined rotation matrix: R = Rz * Ry * Rx
+	let Rzy = multiplyMatrices(Rz, Ry);
+	let Rzyx = multiplyMatrices(Rzy, Rx);
+
+	return Rzyx;
+}
+
+function multiplyMatrices(a, b) {
+	let result = new Array(a.length).fill(0).map(row => new Array(b[0].length).fill(0));
+
+	return result.map((row, i) => {
+		return row.map((val, j) => {
+			return a[i].reduce((sum, elm, k) => sum + (elm * b[k][j]), 0)
+		})
+	});
+}
+
+function transformVector(matrix, vector) {
+	let result = matrix.map(function(row) {
+		return row.reduce(function(sum, cell, i) {
+			return sum + cell * vector[i];
+		}, 0);
+	});
+	return { x: result[0], y: result[1], z: result[2] };
+}
+
+function transformToLocal(rx, ry, rz, ax, ay, az) {
+	// Given vector in coordinate system B
+	let v2 = [ax, ay, az];
+
+	// Create rotation matrix from A to B
+	let rotationMatrixAB = createRotationMatrix(rx, ry, rz);
+
+	// Invert the rotation matrix to get from B to A
+	let rotationMatrixBA = multiplyMatrices(
+		multiplyMatrices(createRotationMatrix(-rx, 0, 0), createRotationMatrix(0, -ry, 0)),
+		createRotationMatrix(0, 0, -rz)
+	);
+	// Transform vector v2 from B to A
+	return transformVector(rotationMatrixBA, v2);
+}
+
 var transitions =
 [
     // -- Powering-on --
@@ -881,8 +952,29 @@ var transitions =
 	    {
             component.lastTimestamp = parameters.timestamp;
             component.csvBuffer += Object.values(parameters).join() + '\n';
-
-            component.gui.sendGuiEvent( 'sensorOrientation', parameters );
+			let localAcc = transformToLocal(
+				parameters.euler_x, parameters.euler_y, parameters.euler_z,
+				parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
+			parameters.localAcc_x = localAcc.x;
+			parameters.localAcc_y = localAcc.y;
+			parameters.localAcc_z = localAcc.z;
+			if (component.syncSensorDataManagement != null) {
+				component.syncSensorDataManagement.uploadRealXsensData(
+					{
+						"tag": parameters.tag,
+						"timestamp": parameters.timestamp,
+						"ex": parameters.euler_x,
+						"ey": parameters.euler_y,
+						"ez": parameters.euler_z,
+						"ax": parameters.freeAcc_x,
+						"ay": parameters.freeAcc_y,
+						"az": parameters.freeAcc_z,
+						"lx": localAcc.x,
+						"ly": localAcc.y,
+						"lz": localAcc.z
+					});
+			}
+            component.gui.sendGuiEvent( 'sensorOrientation', parameters);
 	    }
     },
     {
@@ -1035,12 +1127,12 @@ var choicePoints =
 // =======================================================================================
 class SensorServer extends FunctionalComponent
 {
-    constructor()
+    constructor(syncSensorDataManagement = null)
     {        
         super( "SensorServer", transitions, choicePoints );
-
         var component = this;
-
+		this.syncSensorDataManagement = syncSensorDataManagement;
+		this.syncSensorDataManagement.sensorServer = this;
         this.bleEvents = new events.EventEmitter();
         this.bleEvents.on( 'bleEvent', function(eventName, parameters )
         {
