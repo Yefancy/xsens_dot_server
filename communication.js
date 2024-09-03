@@ -51,7 +51,10 @@ var discoveredSensors = [],
     connectedSensors  = [],
     measuringSensors  = [];
 
+var tag2Address = new Map();
+
 var measuringData = new Map();
+var measuringVirtualData = new Map();
 
 var lastHeadingStatusList = [];
 
@@ -297,6 +300,39 @@ function setEventHandlerFunctions()
     {
     };
 
+    eventHandlerFunctions[  'virtualSensor' ] = function( eventName, parameters  )
+    {
+        for (let data of parameters) {
+            if (tag2Address.has(data.id)) {
+                let address = tag2Address.get(data.id);
+                const svgVirtual = document.getElementById("chart-" + address + "-virtual");
+                if (measuringVirtualData.has(address) && svgVirtual != null) {
+                    let queue = measuringVirtualData.get(address);
+                    let vsData = {
+                        timestamp: data.time,
+                        euler_x: data.ex,
+                        euler_y: data.ey,
+                        euler_z: data.ez,
+                        freeAcc_x: data.ax,
+                        freeAcc_y: data.ay,
+                        freeAcc_z: data.az
+                    }
+                    queue.push(vsData);
+                    let timestamp = vsData.timestamp;
+                    let expected = timestamp - 7;
+                    while (queue.length > 0 && queue[0].timestamp < expected)
+                    {
+                        queue.shift();
+                    }
+                    if (queue.length > 2)
+                    {
+                        updateChart(svgVirtual, queue);
+                    }
+                }
+            }
+        }
+    }
+
     eventHandlerFunctions[  'sensorOrientation' ] = function( eventName, parameters  )
     {
         const address = parameters.address;
@@ -346,13 +382,14 @@ function setEventHandlerFunctions()
                 element.innerHTML = sensorDataToString(parameters);
             }
 
+            let timestamp = parameters.timestamp;
+            let expected = timestamp - 7 * 1000 * 1000;
+
             const svg = document.getElementById("chart-" + address);
             if (measuringData.has(address) && svg != null)
             {
                 let queue = measuringData.get(address);
                 queue.push(parameters);
-                let timestamp = parameters.timestamp;
-                let expected = timestamp - 7 * 1000 * 1000;
                 while (queue.length > 0 && queue[0].timestamp < expected)
                 {
                     queue.shift();
@@ -360,6 +397,27 @@ function setEventHandlerFunctions()
                 if (queue.length > 2)
                 {
                     updateChart(svg, queue);
+                }
+            }
+            const svgVirtual = document.getElementById("chart-" + address + "-virtual");
+            if (parameters.localAcc_z && measuringVirtualData.has(address) && svgVirtual != null) {
+                let queue = measuringVirtualData.get(address);
+                queue.push({
+                    timestamp: parameters.timestamp,
+                    euler_x: parameters.euler_x,
+                    euler_y: parameters.euler_y,
+                    euler_z: parameters.euler_z,
+                    freeAcc_x: parameters.localAcc_x,
+                    freeAcc_y: parameters.localAcc_y,
+                    freeAcc_z: parameters.localAcc_z
+                });
+                while (queue.length > 0 && queue[0].timestamp < expected)
+                {
+                    queue.shift();
+                }
+                if (queue.length > 2)
+                {
+                    updateChart(svgVirtual, queue);
                 }
             }
         }
@@ -402,6 +460,7 @@ function setEventHandlerFunctions()
     eventHandlerFunctions[ 'readDeviceTag' ] = function( eventName, parameters  )
     {
         console.log( "readDeviceTag " + parameters.address + ", " + parameters.tag );
+        tag2Address.set(parameters.tag, parameters.address);
         let label = document.getElementById("tag-" + parameters.address);
         if (label != null) {
             label.innerHTML = parameters.tag;
@@ -589,9 +648,13 @@ function addSensorToList( sensorList, sensorListName, address, clickHandler )
     var sensorData = document.createElement('label');
     sensorData.id = ID_SENSOR_DATA_INDICATOR + address + "data";
     sensorData.innerHTML = sensorDataToString({
-        euler_x: 0,
-        euler_y: 0,
-        euler_z: 0,
+        // euler_x: 0,
+        // euler_y: 0,
+        // euler_z: 0,
+        quaternion_w: 0,
+        quaternion_x: 0,
+        quaternion_y: 0,
+        quaternion_z: 0,
         freeAcc_x: 0,
         freeAcc_y: 0,
         freeAcc_z: 0
@@ -625,21 +688,33 @@ function addSensorToList( sensorList, sensorListName, address, clickHandler )
     initButtonStyle(previewButton);
 
     previewButton.onclick = function() {
-        var svg = document.getElementById("chart-" + address);
+        let svg = document.getElementById("chart-" + address);
+        let svgVirtual = document.getElementById("chart-" + address + "-virtual");
         if (svg == null) {
             svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svgVirtual = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.id = "chart-" + address;
+            svgVirtual.id = "chart-" + address + "-virtual";
             svg.style.width = "70%";
-            svg.style.height = "300px";
+            svgVirtual.style.width = "70%";
+            svg.style.height = "50px";
+            svgVirtual.style.height = "50px";
             svg.style.display = "flex";
+            svgVirtual.style.display = "flex";
             svg.style.background="lightgray";
+            svgVirtual.style.background="lightgray";
             container.appendChild(svg);
+            container.appendChild(svgVirtual);
             updateChart(svg)
+            updateChart(svgVirtual)
             measuringData.set(address, []);
+            measuringVirtualData.set(address, []);
             previewButton.style.background = "#EA6852";
         } else {
             svg.parentNode.removeChild(svg);
+            svgVirtual.parentNode.removeChild(svgVirtual);
             measuringData.delete(address);
+            measuringVirtualData.delete(address);
             previewButton.style.background = "#FFFFFF";
         }
     }
@@ -790,6 +865,23 @@ function updateHeadingResetButton()
     {
         headingResetButton.innerHTML = 'Heading Reset';
     }
+}
+
+function recordingExpData() {
+    let name = document.getElementById("expName").value;
+    if (name === "") {
+        alert("Please input recording name");
+        return;
+    }
+    let leftTimes = document.getElementById("leftTimes").value;
+    let duration = document.getElementById("duration").value;
+    let interval = document.getElementById("interval").value;
+    sendGuiEvent( 'recordingExpData', {
+        expName: name,
+        leftTimes: leftTimes,
+        duration: duration,
+        interval: interval
+    } );
 }
 
 function scanControlButtonClicked()
@@ -1078,7 +1170,13 @@ function getUniqueFilename()
 }
 
 function sensorDataToString(data) {
-    return `ex: ${data.euler_x === undefined ? 0 : data.euler_x.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ey: ${data.euler_y === undefined ? 0 : data.euler_y.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ez: ${data.euler_z === undefined ? 0 : data.euler_z.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ax: ${data.freeAcc_x === undefined ? 0 : data.freeAcc_x.toFixed(0).replace(/^-([.0]*)$/, '$1')}, ay: ${data.freeAcc_y === undefined ? 0 : data.freeAcc_y.toFixed(0).replace(/^-([.0]*)$/, '$1')}, az: ${data.freeAcc_z === undefined ? 0 : data.freeAcc_z.toFixed(0).replace(/^-([.0]*)$/, '$1')}`;
+    return `qw: ${data.quaternion_w === undefined ? 0 : data.quaternion_w.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    qx: ${data.quaternion_x === undefined ? 0 : data.quaternion_x.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    qy: ${data.quaternion_y === undefined ? 0 : data.quaternion_y.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    qz: ${data.quaternion_z === undefined ? 0 : data.quaternion_z.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    ax: ${data.freeAcc_x === undefined ? 0 : data.freeAcc_x.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    ay: ${data.freeAcc_y === undefined ? 0 : data.freeAcc_y.toFixed(3).replace(/^-([.0]*)$/, '$1')}, 
+    az: ${data.freeAcc_z === undefined ? 0 : data.freeAcc_z.toFixed(3).replace(/^-([.0]*)$/, '$1')}`;
 }
 
 xScale = d3.scaleLinear();
@@ -1099,10 +1197,10 @@ function updateChart(svgElement, data = []) {
     let w = svgElement.clientWidth;
     let h = svgElement.clientHeight;
 
-    let marginLeft = 30;
-    let marginRight = 30;
-    let marginTop = 30;
-    let marginBottom = 30;
+    let marginLeft = 1;
+    let marginRight = 1;
+    let marginTop = 1;
+    let marginBottom = 1;
 
     let svg = d3.select(svgElement)
 
@@ -1117,6 +1215,8 @@ function updateChart(svgElement, data = []) {
         max = Math.max(max, d.freeAcc_x, d.freeAcc_y, d.freeAcc_z);
         min = Math.min(min, d.freeAcc_x, d.freeAcc_y, d.freeAcc_z);
     });
+    // max = 15;
+    // min = -15;
     let range = Math.max(max, -min);
     yScale.domain([-range, range])
         .range([h - marginBottom, marginTop]);
@@ -1146,13 +1246,13 @@ function updateChart(svgElement, data = []) {
 
     const t = svg.transition().duration(1000)
 
-    svg.select(".y_axis")
-        .attr('transform', `translate(${marginLeft} 0)`)
-        .call(yAxis);
-
-    svg.select(".x_axis")
-        .attr('transform', `translate(0 ${h - marginBottom})`)
-        .call(xAxis);
+    // svg.select(".y_axis")
+    //     .attr('transform', `translate(${marginLeft} 0)`)
+    //     .call(yAxis);
+    //
+    // svg.select(".x_axis")
+    //     .attr('transform', `translate(0 ${h - marginBottom})`)
+    //     .call(xAxis);
 
     svg.select(".lineX")
         .attr("d", lineX(data))

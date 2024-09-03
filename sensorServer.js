@@ -53,6 +53,260 @@ const RECORDINGS_PATH = "/data/",
 // =======================================================================================
 // State transitions table
 // =======================================================================================
+let PythonSocket = require('./pythonSocket.js');
+
+// ========= Transform with magnetometer and accelerometer ==========
+// function normalize(v) {
+//     const mag = Math.sqrt(v[0]**2 + v[1]**2 + v[2]**2);
+//     return v.map(x => x / mag);
+// }
+
+// function crossProduct(v1, v2) {
+//     return [
+//         v1[1] * v2[2] - v1[2] * v2[1],
+//         v1[2] * v2[0] - v1[0] * v2[2],
+//         v1[0] * v2[1] - v1[1] * v2[0]
+//     ];
+// }
+
+// function dotProduct(v1, v2) {
+//     return v1.reduce((sum, x, i) => sum + x * v2[i], 0);
+// }
+
+// function matrixTranspose(m) {
+//     return m[0].map((_, i) => m.map(row => row[i]));
+// }
+
+// function multiplyMatrixVector(m, v) {
+//     return m.map(row => dotProduct(row, v));
+// }
+
+// function transformToLocal(mag_x, mag_y, mag_z, ax, ay, az) {
+//     const magnet = [mag_x, mag_y, mag_z];
+//     const globalVector = [ax, ay, az];
+//     const accel = [0, 0, 9.8];
+//     const g = normalize(accel);
+//     const m = normalize(magnet);
+//     const east = normalize(crossProduct(m, g));
+//     const north = crossProduct(g, east);
+//     const rotationMatrix = [east, north, g];
+//     const localVector = multiplyMatrixVector(matrixTranspose(rotationMatrix), globalVector);
+//     return localVector
+// }
+
+// =====================Transform with Quaternion 2=========================
+// function quaternionMultiply(q1, q2) {
+//     return [
+//       q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3],
+//       q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2],
+//       q1[0] * q2[2] - q1[1] * q2[3] + q1[2] * q2[0] + q1[3] * q2[1],
+//       q1[0] * q2[3] + q1[1] * q2[2] - q1[2] * q2[1] + q1[3] * q2[0]
+//     ];
+//   }
+  
+//   // Helper function to calculate the conjugate of a quaternion
+//   function quaternionConjugate(q) {
+//     return [q[0], -q[1], -q[2], -q[3]];
+//   }
+  
+//   // Function to rotate a vector using a quaternion
+//   function rotateVectorByQuaternion(v, q) {
+//     // Convert vector to quaternion form with w = 0
+//     let vQuat = [0, v[0], v[1], v[2]];
+    
+//     // Calculate the conjugate of the quaternion
+//     let qConjugate = quaternionConjugate(q);
+  
+//     // Perform the rotation: b = q * v * qConjugate
+//     let resultQuat = quaternionMultiply(quaternionMultiply(q, vQuat), qConjugate);
+  
+//     // The resulting vector in local coordinates (ignoring the w component)
+//     return [resultQuat[1], resultQuat[2], resultQuat[3]];
+//   }
+  
+//   function transformToLocal(w, x, y, z, ax, ay, az) {
+//     const a = [ax, ay, az];
+//     const Q = [w, x, y, z];
+//     const b = rotateVectorByQuaternion(a, Q);
+//     return b;
+//   }
+
+// =====================Transform with Quaternion 1=========================
+
+function quaternionToRotationMatrix(q) {
+    const [q0, q1, q2, q3] = q;
+    return [
+        [1 - 2*q2**2 - 2*q3**2, 2*q1*q2 - 2*q0*q3, 2*q1*q3 + 2*q0*q2],
+        [2*q1*q2 + 2*q0*q3, 1 - 2*q1**2 - 2*q3**2, 2*q2*q3 - 2*q0*q1],
+        [2*q1*q3 - 2*q0*q2, 2*q2*q3 + 2*q0*q1, 1 - 2*q1**2 - 2*q2**2]
+    ];
+}
+
+function transposeMatrix(matrix) {
+    return matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]));
+}
+
+function rotateVector(vector, rotationMatrix) {
+    return vector.map((_, i) => 
+        rotationMatrix[i].reduce((acc, val, j) => acc + val * vector[j], 0)
+    );
+}
+
+function transformToLocal(w, x, y, z, ax, ay, az) {
+    // 示例四元数 (w, x, y, z)
+    const quaternion = [w, x, y, z];
+    // 全球坐标系下的加速度
+    const globalAccel = [ax, ay, az];
+
+    // 计算旋转矩阵
+    const rotationMatrix = transposeMatrix(quaternionToRotationMatrix(quaternion));
+
+    // 将全球坐标转换为局部坐标
+    const localAccel = rotateVector(globalAccel, rotationMatrix);
+    return localAccel;
+}
+
+// =====================Transform with Euler ========================
+// function eulerToRotationMatrix(roll, pitch, yaw) {
+//     // 将角度转换为弧度
+//     const rollRad = roll * Math.PI / 180;
+//     const pitchRad = pitch * Math.PI / 180;
+//     const yawRad = yaw * Math.PI / 180;
+
+//     // 计算每个旋转矩阵
+//     const Rx = [
+//         [1, 0, 0],
+//         [0, Math.cos(rollRad), -Math.sin(rollRad)],
+//         [0, Math.sin(rollRad), Math.cos(rollRad)]
+//     ];
+
+//     const Ry = [
+//         [Math.cos(pitchRad), 0, Math.sin(pitchRad)],
+//         [0, 1, 0],
+//         [-Math.sin(pitchRad), 0, Math.cos(pitchRad)]
+//     ];
+
+//     const Rz = [
+//         [Math.cos(yawRad), -Math.sin(yawRad), 0],
+//         [Math.sin(yawRad), Math.cos(yawRad), 0],
+//         [0, 0, 1]
+//     ];
+
+//     // 计算 R = Rz * Ry * Rx
+//     const Rzy = matrixMultiply(Rz, Ry);
+//     const R = matrixMultiply(Rzy, Rx);
+
+//     return R;
+// }
+
+function matrixMultiply(A, B) {
+    // 矩阵乘法 A * B
+    const result = [];
+    for (let i = 0; i < A.length; i++) {
+        result[i] = [];
+        for (let j = 0; j < B[0].length; j++) {
+            let sum = 0;
+            for (let k = 0; k < A[0].length; k++) {
+                sum += A[i][k] * B[k][j];
+            }
+            result[i][j] = sum;
+        }
+    }
+    return result;
+}
+
+// function globalToLocalAcceleration(globalAccel, R) {
+//     // 将全球坐标系下的加速度转换为局部坐标系
+//     const localAccel = [];
+//     for (let i = 0; i < R.length; i++) {
+//         let sum = 0;
+//         for (let j = 0; j < globalAccel.length; j++) {
+//             sum += R[i][j] * globalAccel[j];
+//         }
+//         localAccel.push(sum);
+//     }
+//     return localAccel;
+// }
+// function transformToLocal(rx, ry, rz, ax, ay, az) {
+// 	const R = eulerToRotationMatrix(rx, ry, rz);
+//     const globalAccel = [ax, ay, az];
+//     // 转换为局部坐标系下的加速度
+//     const localAccel = globalToLocalAcceleration(globalAccel, R);
+// 	// Transform vector v2 from B to A
+// 	return localAccel;
+//     console.log(localAccel);
+// }
+
+// function degreesToRadians(degrees) {
+// 	return degrees * Math.PI / 180;
+// }
+
+// function createRotationMatrix(rx, ry, rz) {
+// 	// Convert angles from degrees to radians
+// 	rx = degreesToRadians(rx);
+// 	ry = degreesToRadians(ry);
+// 	rz = degreesToRadians(rz);
+
+// 	// Rotation matrices for each axis
+// 	let Rx = [
+// 		[1, 0, 0],
+// 		[0, Math.cos(rx), -Math.sin(rx)],
+// 		[0, Math.sin(rx), Math.cos(rx)]
+// 	];
+
+// 	let Ry = [
+// 		[Math.cos(ry), 0, Math.sin(ry)],
+// 		[0, 1, 0],
+// 		[-Math.sin(ry), 0, Math.cos(ry)]
+// 	];
+
+// 	let Rz = [
+// 		[Math.cos(rz), -Math.sin(rz), 0],
+// 		[Math.sin(rz), Math.cos(rz), 0],
+// 		[0, 0, 1]
+// 	];
+
+// 	// Combined rotation matrix: R = Rz * Ry * Rx
+// 	let Rzy = multiplyMatrices(Rz, Ry);
+// 	let Rzyx = multiplyMatrices(Rzy, Rx);
+
+// 	return Rzyx;
+// }
+
+// function multiplyMatrices(a, b) {
+// 	let result = new Array(a.length).fill(0).map(row => new Array(b[0].length).fill(0));
+
+// 	return result.map((row, i) => {
+// 		return row.map((val, j) => {
+// 			return a[i].reduce((sum, elm, k) => sum + (elm * b[k][j]), 0)
+// 		})
+// 	});
+// }
+
+// function transformVector(matrix, vector) {
+// 	let result = matrix.map(function(row) {
+// 		return row.reduce(function(sum, cell, i) {
+// 			return sum + cell * vector[i];
+// 		}, 0);
+// 	});
+// 	return { x: result[0], y: result[1], z: result[2] };
+// }
+
+// function transformToLocal(rx, ry, rz, ax, ay, az) {
+// 	// Given vector in coordinate system B
+// 	let v2 = [ax, ay, az];
+
+// 	// Create rotation matrix from A to B
+// 	let rotationMatrixAB = createRotationMatrix(rx, ry, rz);
+
+// 	// Invert the rotation matrix to get from B to A
+// 	let rotationMatrixBA = multiplyMatrices(
+// 		multiplyMatrices(createRotationMatrix(-rx, 0, 0), createRotationMatrix(0, -ry, 0)),
+// 		createRotationMatrix(0, 0, -rz)
+// 	);
+// 	// Transform vector v2 from B to A
+// 	return transformVector(rotationMatrixBA, v2);
+// }
 
 var transitions =
 [
@@ -879,10 +1133,61 @@ var transitions =
 		
 		transFunc:function( component, parameters )
 	    {
+            parameters.freeAcc_z -= 10;
             component.lastTimestamp = parameters.timestamp;
             component.csvBuffer += Object.values(parameters).join() + '\n';
-
-            component.gui.sendGuiEvent( 'sensorOrientation', parameters );
+			// let localAcc = transformToLocal(
+			// 	parameters.euler_x, parameters.euler_y, parameters.euler_z,
+			// 	parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
+            let localAcc = transformToLocal(
+                parameters.quaternion_w, parameters.quaternion_x, parameters.quaternion_y, parameters.quaternion_z,
+                parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
+            // let localAcc = transformToLocal(
+            //     parameters.mag_x, parameters.mag_y, parameters.mag_z,
+            //     parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
+            console.log(parameters);
+            console.log(localAcc[0].toFixed(2), localAcc[1].toFixed(2), localAcc[2].toFixed(2));
+			parameters.localAcc_x = localAcc[0];
+			parameters.localAcc_y = localAcc[1];
+			parameters.localAcc_z = localAcc[2];
+            PythonSocket.onRealDataUpdated({
+                "tag": parameters.tag,
+                "timestamp": parameters.timestamp,
+                // "ex": parameters.euler_x,
+                // "ey": parameters.euler_y,
+                // "ez": parameters.euler_z,
+                "qw": parameters.quaternion_w,
+                "qx": parameters.quaternion_x,
+                "qy": parameters.quaternion_y,
+                "qz": parameters.quaternion_z,
+                "ax": parameters.freeAcc_x,
+                "ay": parameters.freeAcc_y,
+                "az": parameters.freeAcc_z,
+                "lx": localAcc.x,
+                "ly": localAcc.y,
+                "lz": localAcc.z
+            });
+			if (component.syncSensorDataManagement != null) {
+				component.syncSensorDataManagement.uploadRealXsensData(
+					{
+						"tag": parameters.tag,
+						"timestamp": parameters.timestamp,
+						// "ex": parameters.euler_x,
+						// "ey": parameters.euler_y,
+						// "ez": parameters.euler_z,
+                        "qw": parameters.quaternion_w,
+                        "qx": parameters.quaternion_x,
+                        "qy": parameters.quaternion_y,
+                        "qz": parameters.quaternion_z,
+						"ax": parameters.freeAcc_x,
+						"ay": parameters.freeAcc_y,
+						"az": parameters.freeAcc_z,
+						"lx": localAcc.x,
+						"ly": localAcc.y,
+						"lz": localAcc.z
+					});
+			}
+            component.gui.sendGuiEvent( 'sensorOrientation', parameters);
 	    }
     },
     {
@@ -1035,12 +1340,12 @@ var choicePoints =
 // =======================================================================================
 class SensorServer extends FunctionalComponent
 {
-    constructor()
+    constructor(syncSensorDataManagement = null)
     {        
         super( "SensorServer", transitions, choicePoints );
-
         var component = this;
-
+		this.syncSensorDataManagement = syncSensorDataManagement;
+		this.syncSensorDataManagement.sensorServer = this;
         this.bleEvents = new events.EventEmitter();
         this.bleEvents.on( 'bleEvent', function(eventName, parameters )
         {
@@ -1120,6 +1425,7 @@ function startRecordingToFile( component, name )
         component.eventHandler( 'fsClose' );
     });
 }
+
 
 // =======================================================================================
 // Export the Sensor Server class

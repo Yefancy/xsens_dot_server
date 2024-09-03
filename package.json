@@ -3,16 +3,20 @@
     "version": "1.0.0",
     "description": "Xsens DOT Server",
     "scripts": {
-        "start": "node xsensDotServer.js"
+        "xsensDotServer": "node xsensDotServer.js",
+        "virtualSensor": "node virtualSensorServer.js",
+        "server": "node server.js"
     },
     "dependencies": {
         "@abandonware/noble": "^1.9.2-8",
+        "ascii-art-ansi": "^1.1.0",
+        "d3": "latest",
         "express": "^4.17.1",
+        "hashmap": "^2.4.0",
         "ip": "^1.1.5",
         "noble-mac": "https://github.com/Timeular/noble-mac.git",
         "quaternion": "^1.1.0",
         "socket.io": "^2.3.0",
-        "hashmap": "^2.4.0",
-        "d3": "latest"
+        "ws": "^8.18.0"
     }
 }

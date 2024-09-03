@@ -579,6 +579,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             var status = getSnapshotStatus(data, 32);
             var clipCountAcc = getClipCountAcc(data, 34);
             var clipCountGyr = getClipCountGyr(data, 35);
+            var mag = getCalibratedMag(data, 28);
 
             var result =
             {
@@ -592,6 +593,9 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
                 freeAcc_x:    freeAcceleration.x,
                 freeAcc_y:    freeAcceleration.y,
                 freeAcc_z:    freeAcceleration.z,
+                mag_x:     mag.x,
+                mag_y:     mag.y,
+                mag_z:     mag.z,
                 status:       status,
                 clipCountAcc: clipCountAcc,
                 clipCountGyr: clipCountGyr
@@ -625,6 +629,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
                 mag_z:        mag.z
             };
 
+            // console.log(result.mag_x + ", " + result.mag_y + ", " + result.mag_z);
             // console.log("Payload id 20 bleSensorData " + result.timestamp + ", " + result.address 
             //     + ", acc_x " + result.acc_x + ", acc_y " + result.acc_y + ", acc_z " + result.acc_z
             //     + ", gyr_x " + result.gyr_x + ", gyr_y " + result.gyr_y + ", gyr_z " + result.gyr_z
@@ -668,6 +673,10 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
                 euler_x:   euler.x,
                 euler_y:   euler.y,
                 euler_z:   euler.z,
+                quaternion_w: quaternion.w,
+                quaternion_x: quaternion.x,
+                quaternion_y: quaternion.y,
+                quaternion_z: quaternion.z,
                 freeAcc_x: freeAcceleration.x,
                 freeAcc_y: freeAcceleration.y,
                 freeAcc_z: freeAcceleration.z,
@@ -684,16 +693,22 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
 
             var result =
             {
-                timestamp:    sensor.systemTimestamp,
-                address:      sensor.address,
+                timestamp: sensor.systemTimestamp,
+                address:   sensor.address,
                 tag: sensor.tag,
+                euler_x:   euler.x,
+                euler_y:   euler.y,
+                euler_z:   euler.z,
                 quaternion_w: quaternion.w,
                 quaternion_x: quaternion.x,
                 quaternion_y: quaternion.y,
                 quaternion_z: quaternion.z,
-                gyr_x:        gyr.x,
-                gyr_y:        gyr.y,
-                gyr_z:        gyr.z
+                freeAcc_x: freeAcceleration.x,
+                freeAcc_y: freeAcceleration.y,
+                freeAcc_z: freeAcceleration.z,
+                mag_x:     mag.x,
+                mag_y:     mag.y,
+                mag_z:     mag.z
             };
 
             return result;

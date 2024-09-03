@@ -183,6 +183,10 @@ class FunctionalComponent
             // TODO improvement
             this.globalEventHandler( eventName, parameters );
             return;
+        } else if ( eventName === 'recordingExpData' )
+        {
+            this.syncSensorDataManagement.recordingExpData(parameters);
+            return;
         }
 
         if ( parameters == undefined ) 
