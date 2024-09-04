@@ -199,21 +199,21 @@ function transformToLocal(w, x, y, z, ax, ay, az) {
 //     return R;
 // }
 
-function matrixMultiply(A, B) {
-    // 矩阵乘法 A * B
-    const result = [];
-    for (let i = 0; i < A.length; i++) {
-        result[i] = [];
-        for (let j = 0; j < B[0].length; j++) {
-            let sum = 0;
-            for (let k = 0; k < A[0].length; k++) {
-                sum += A[i][k] * B[k][j];
-            }
-            result[i][j] = sum;
-        }
-    }
-    return result;
-}
+// function matrixMultiply(A, B) {
+//     // 矩阵乘法 A * B
+//     const result = [];
+//     for (let i = 0; i < A.length; i++) {
+//         result[i] = [];
+//         for (let j = 0; j < B[0].length; j++) {
+//             let sum = 0;
+//             for (let k = 0; k < A[0].length; k++) {
+//                 sum += A[i][k] * B[k][j];
+//             }
+//             result[i][j] = sum;
+//         }
+//     }
+//     return result;
+// }
 
 // function globalToLocalAcceleration(globalAccel, R) {
 //     // 将全球坐标系下的加速度转换为局部坐标系
@@ -1133,7 +1133,7 @@ var transitions =
 		
 		transFunc:function( component, parameters )
 	    {
-            parameters.freeAcc_z -= 10;
+            parameters.freeAcc_z -= 9.8;
             component.lastTimestamp = parameters.timestamp;
             component.csvBuffer += Object.values(parameters).join() + '\n';
 			// let localAcc = transformToLocal(
