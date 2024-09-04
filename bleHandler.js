@@ -574,6 +574,7 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
             return result;
             
         case MEASURING_PAYLOAD_TYPE_EXTENDED_QUATERNION:
+            var euler = getEuler(data, 4);
             var quaternion = getOrientationQuaternion(data, 4);
             var freeAcceleration = getFreeAcceleration(data, 20);
             var status = getSnapshotStatus(data, 32);
@@ -586,6 +587,9 @@ function convertSensorData( sensor, data, measuringPayloadId, isSyncingEnabled )
                 timestamp:    sensor.systemTimestamp,
                 address:      sensor.address,
                 tag: sensor.tag,
+                euler_x:   euler.x,
+                euler_y:   euler.y,
+                euler_z:   euler.z,
                 quaternion_w: quaternion.w,
                 quaternion_x: quaternion.x,
                 quaternion_y: quaternion.y,

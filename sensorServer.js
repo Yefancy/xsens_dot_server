@@ -977,7 +977,7 @@ var transitions =
 	    {
             var now = new Date();
 
-            component.fileStream.write( "sep=,\n" );
+            // component.fileStream.write( "sep=,\n" );
 
             switch (component.measuringPayloadId)
             {
@@ -986,7 +986,7 @@ var transitions =
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_EXTENDED_QUATERNION:
-                    component.fileStream.write( "Measurement Mode:,Extended (Quaternion)\n" );
+                    // component.fileStream.write( "Measurement Mode:,Extended (Quaternion)\n" );
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_RATE_QUANTITIES_WITH_MAG:
@@ -1006,8 +1006,8 @@ var transitions =
                     break;
             }
 
-            component.fileStream.write( "StartTime:," + now.toUTCString() + "\n" );
-            component.fileStream.write( "© Xsens Technologies B. V. 2005-" + now.getFullYear() + "\n\n" );
+            // component.fileStream.write( "StartTime:," + now.toUTCString() + "\n" );
+            // component.fileStream.write( "© Xsens Technologies B. V. 2005-" + now.getFullYear() + "\n\n" );
 
             switch (component.measuringPayloadId)
             {
@@ -1016,9 +1016,25 @@ var transitions =
                     break;
 
                 case MEASURING_PAYLOAD_TYPE_EXTENDED_QUATERNION:
-                    component.fileStream.write( "Timestamp,Address,Tag,Quaternion_w,Quaternion_x,Quaternion_y,Quaternion_z,FreeAcc_x,FreeAcc_y,FreeAcc_z,Status,ClipCountAcc,ClipCountGyr\n" );
+                    component.fileStream.write( "tag,timestamp,ex,ey,ez,qw,qx,qy,qz,ax,ay,az,lx,ly,lz\n" );
                     break;
-
+                    // var newData = {
+                    //     "tag": parameters.tag,
+                    //     "timestamp": parameters.timestamp,
+                    //     "ex": parameters.euler_x,
+                    //     "ey": parameters.euler_y,
+                    //     "ez": parameters.euler_z,
+                    //     "qw": parameters.quaternion_w,
+                    //     "qx": parameters.quaternion_x,
+                    //     "qy": parameters.quaternion_y,
+                    //     "qz": parameters.quaternion_z,
+                    //     "ax": parameters.freeAcc_x,
+                    //     "ay": parameters.freeAcc_y,
+                    //     "az": parameters.freeAcc_z,
+                    //     "lx": parameters.localAcc_x,
+                    //     "ly": parameters.localAcc_y,
+                    //     "lz": parameters.localAcc_z
+                    // }
                 case MEASURING_PAYLOAD_TYPE_RATE_QUANTITIES_WITH_MAG:
                     component.fileStream.write( "Timestamp,Address,Tag,Acc_x,Acc_y,Acc_z,Gyr_x,Gyr_y,Gyr_z,Mag_x,Mag_y,Mag_z\n" );
                     break;
@@ -1135,7 +1151,6 @@ var transitions =
 	    {
             parameters.freeAcc_z -= 9.8;
             component.lastTimestamp = parameters.timestamp;
-            component.csvBuffer += Object.values(parameters).join() + '\n';
 			// let localAcc = transformToLocal(
 			// 	parameters.euler_x, parameters.euler_y, parameters.euler_z,
 			// 	parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
@@ -1150,12 +1165,12 @@ var transitions =
 			parameters.localAcc_x = localAcc[0];
 			parameters.localAcc_y = localAcc[1];
 			parameters.localAcc_z = localAcc[2];
-            PythonSocket.onRealDataUpdated({
+            var newData = {
                 "tag": parameters.tag,
                 "timestamp": parameters.timestamp,
-                // "ex": parameters.euler_x,
-                // "ey": parameters.euler_y,
-                // "ez": parameters.euler_z,
+                "ex": parameters.euler_x,
+                "ey": parameters.euler_y,
+                "ez": parameters.euler_z,
                 "qw": parameters.quaternion_w,
                 "qx": parameters.quaternion_x,
                 "qy": parameters.quaternion_y,
@@ -1163,10 +1178,12 @@ var transitions =
                 "ax": parameters.freeAcc_x,
                 "ay": parameters.freeAcc_y,
                 "az": parameters.freeAcc_z,
-                "lx": localAcc.x,
-                "ly": localAcc.y,
-                "lz": localAcc.z
-            });
+                "lx": parameters.localAcc_x,
+                "ly": parameters.localAcc_y,
+                "lz": parameters.localAcc_z
+            }
+            PythonSocket.onRealDataUpdated(newData);
+            component.csvBuffer += Object.values(newData).join() + '\n';
 			if (component.syncSensorDataManagement != null) {
 				component.syncSensorDataManagement.uploadRealXsensData(
 					{
@@ -1182,9 +1199,9 @@ var transitions =
 						"ax": parameters.freeAcc_x,
 						"ay": parameters.freeAcc_y,
 						"az": parameters.freeAcc_z,
-						"lx": localAcc.x,
-						"ly": localAcc.y,
-						"lz": localAcc.z
+						"lx": parameters.localAcc_x,
+                        "ly": parameters.localAcc_y,
+                        "lz": parameters.localAcc_z
 					});
 			}
             component.gui.sendGuiEvent( 'sensorOrientation', parameters);
