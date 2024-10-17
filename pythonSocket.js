@@ -19,12 +19,12 @@ wss.on('connection', (ws) => {
     setInterval(() => {
         const data = JSON.stringify({ message: currentParams, timestamp: Date.now() });
         ws.send(data);
-    }, 17);
+    }, 20);
 
     ws.on('close', () => {
         console.log('Client disconnected');
     });
 });
 
-console.log('WebSocket server is running on ws://localhost:8080');
+console.log("Python socket server running at http://localhost:8080/");
 module.exports.onRealDataUpdated = onRealDataUpdated;

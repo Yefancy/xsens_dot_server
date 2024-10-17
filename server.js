@@ -1,7 +1,7 @@
 let SyncSensorDataManagement = require('./syncSensorDataManagement.js');
 let SensorServer = require('./sensorServer.js');
 let VirtualSensorServer = require('./virtualSensorServer.js');
-let PythonSocket = require('./pythonSocket.js');
+// let PythonSocket = require('./pythonSocket.js');
 
 let syncSensorDataManager = new SyncSensorDataManagement();
 let sensorServer = new SensorServer(syncSensorDataManager);

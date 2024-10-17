@@ -1160,11 +1160,12 @@ var transitions =
             // let localAcc = transformToLocal(
             //     parameters.mag_x, parameters.mag_y, parameters.mag_z,
             //     parameters.freeAcc_x, parameters.freeAcc_y, parameters.freeAcc_z);
-            console.log(parameters);
-            console.log(localAcc[0].toFixed(2), localAcc[1].toFixed(2), localAcc[2].toFixed(2));
+            
 			parameters.localAcc_x = localAcc[0];
 			parameters.localAcc_y = localAcc[1];
 			parameters.localAcc_z = localAcc[2];
+            console.log(parameters);
+            console.log(localAcc[0].toFixed(2), localAcc[1].toFixed(2), localAcc[2].toFixed(2));
             var newData = {
                 "tag": parameters.tag,
                 "timestamp": parameters.timestamp,

@@ -105,7 +105,7 @@ function startWebserver( guiHandler )
     guiHandler.http.listen(PORT, function ()
     {
         var ip = require("ip");
-        console.log("Webserver listening on port " + PORT + ", IP address: " + ip.address() );
+        console.log("GUI is running on port " + PORT + ", IP address: " + ip.address() );
     });
 }
 
